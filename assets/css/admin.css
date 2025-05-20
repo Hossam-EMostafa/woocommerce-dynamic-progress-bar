@@ -1,0 +1,112 @@
+.wc-progress-bar-condition {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    position: relative;
+}
+
+.wc-progress-bar-condition-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.wc-progress-bar-main-condition {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.wc-progress-bar-condition-fields select,
+.wc-progress-bar-condition-fields input[type="number"] {
+    max-width: 120px;
+}
+
+.wc-progress-bar-logic-operator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    width: 100%;
+}
+
+.wc-progress-bar-sub-conditions {
+    margin-left: 20px;
+    border-left: 2px solid #ddd;
+    padding-left: 15px;
+    width: 100%;
+}
+
+.wc-progress-bar-sub-condition {
+    margin: 10px 0;
+    padding: 10px;
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+
+.wc-progress-bar-sub-condition-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.wc-progress-bar-condition-text {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.wc-progress-bar-condition-text input {
+    width: 100% !important;
+    max-width: 600px !important;
+}
+
+.wc-progress-bar-remove-condition,
+.wc-progress-bar-remove-sub-condition {
+    color: #a00;
+    text-decoration: none;
+}
+
+.wc-progress-bar-remove-condition:hover,
+.wc-progress-bar-remove-sub-condition:hover {
+    color: #dc3232;
+}
+
+.wc-progress-bar-preview {
+    margin-top: 30px;
+    padding-top: 30px;
+    border-top: 1px solid #ddd;
+}
+
+/* Sortable handle */
+.wc-progress-bar-condition-fields {
+    cursor: move;
+}
+
+/* Responsive adjustments */
+@media (max-width: 782px) {
+    .wc-progress-bar-condition-fields,
+    .wc-progress-bar-main-condition,
+    .wc-progress-bar-logic-operator,
+    .wc-progress-bar-sub-condition-fields {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .wc-progress-bar-condition-fields select,
+    .wc-progress-bar-condition-fields input[type="number"],
+    .wc-progress-bar-sub-condition-fields select,
+    .wc-progress-bar-sub-condition-fields input[type="number"] {
+        max-width: 100%;
+    }
+
+    .wc-progress-bar-sub-conditions {
+        margin-left: 10px;
+        padding-left: 10px;
+    }
+}

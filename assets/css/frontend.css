@@ -1,0 +1,39 @@
+.wc-progress-bar-container {
+    margin: 20px 0;
+    max-width: 100%;
+}
+
+.wc-progress-bar-text {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.wc-progress-bar-background {
+    position: relative;
+}
+
+.wc-progress-bar-fill {
+    height: 100%;
+    width: 0;
+}
+
+/* RTL support */
+.rtl .wc-progress-bar-text {
+    direction: rtl;
+}
+
+/* GreenShift compatibility */
+.gspb_progress_bar_container .wc-progress-bar-container {
+    margin: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .wc-progress-bar-text {
+        font-size: 14px !important;
+    }
+    
+    .wc-progress-bar-background {
+        height: 15px !important;
+    }
+}
