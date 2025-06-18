@@ -6,7 +6,7 @@ Tested up to: 6.4
 Requires PHP: 7.4
 WC requires at least: 7.0
 WC tested up to: 8.0
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPL-2.0+
 License URI: http://www.gnu.org/licenses/gpl-2.0.txt
 
@@ -18,11 +18,12 @@ The WooCommerce Dynamic Progress Bar plugin adds a customizable progress bar to 
 
 Key features:
 - Real-time updates without page reload
-- Multiple customizable conditions
+- Multiple customizable conditions with AND/OR logic
 - Flexible styling options
 - Shortcode integration
 - GreenShift theme optimized
 - Fully responsive
+- Caching for better performance
 
 == Installation ==
 
@@ -49,10 +50,17 @@ Yes! You can use attributes like width, height, text_color, etc. to override the
 
 == Changelog ==
 
+= 1.1.0 =
+* Added caching for better performance
+* Improved security with nonce verification
+* Added AND/OR logic for conditions
+* Fixed duplicate settings implementation
+* Optimized asset loading
+
 = 1.0.0 =
 * Initial release
 
 == Upgrade Notice ==
 
-= 1.0.0 =
-Initial release of the plugin.
+= 1.1.0 =
+This version includes significant improvements to performance and security. It's recommended for all users.

@@ -4,7 +4,7 @@
  * Plugin URI: https://school-of-marketing.com/
  * Description: Adds a dynamic progress bar to WooCommerce that updates based on cart conditions.
  * Version: 1.1.0
- * Author: SoM
+ * Author: SoM (Hossam Essam)
  * Author URI: https://school-of-marketing.com/
  * License: GPL-2.0+
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
@@ -17,16 +17,17 @@
 defined('ABSPATH') || exit;
 
 // Define plugin constants
-define('WC_PROGRESS_BAR_VERSION', '1.0.0');
+define('WC_PROGRESS_BAR_VERSION', '1.1.0');
 define('WC_PROGRESS_BAR_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WC_PROGRESS_BAR_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('WC_PROGRESS_BAR_BASENAME', plugin_basename(__FILE__));
 
 // Check if WooCommerce is active
-if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
+if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins'))) {
     add_action('admin_notices', function() {
         ?>
         <div class="notice notice-error">
-            <p><?php _e('WooCommerce Dynamic Progress Bar requires WooCommerce to be installed and active.', 'wc-dynamic-progress-bar'); ?></p>
+            <p><?php esc_html_e('WooCommerce Dynamic Progress Bar requires WooCommerce to be installed and active.', 'wc-dynamic-progress-bar'); ?></p>
         </div>
         <?php
     });
@@ -40,8 +41,13 @@ require_once WC_PROGRESS_BAR_PLUGIN_DIR . 'includes/class-shortcode.php';
 
 // Initialize plugin
 function wc_progress_bar_init() {
+    // Initialize settings
     WC_Progress_Bar_Settings::instance();
-    WC_Progress_Bar_Shortcode::instance();
+    
+    // Initialize frontend functionality
+    if (!is_admin() || (defined('DOING_AJAX') && DOING_AJAX)) {
+        WC_Progress_Bar_Shortcode::instance();
+    }
 }
 add_action('plugins_loaded', 'wc_progress_bar_init');
 
@@ -80,22 +86,12 @@ register_activation_hook(__FILE__, function() {
     }
 });
 
-// Register deactivation hook
-register_deactivation_hook(__FILE__, function() {
-    // Clean up if needed
-});
-
-// Register uninstaller
-register_uninstall_hook(__FILE__, 'wc_progress_bar_uninstall');
-function wc_progress_bar_uninstall() {
-    delete_option('wc_progress_bar_settings');
-}
-// Add this to woocommerce-dynamic-progress-bar.php after the class definitions
-
 // AJAX handler for frontend updates
 add_action('wp_ajax_get_progress_bar_data', 'wc_progress_bar_get_progress_data');
 add_action('wp_ajax_nopriv_get_progress_bar_data', 'wc_progress_bar_get_progress_data');
 function wc_progress_bar_get_progress_data() {
+    check_ajax_referer('wc_progress_bar_nonce', 'nonce');
+    
     $progress_bar = WC_Progress_Bar::instance();
     $progress_data = $progress_bar->get_current_progress();
     

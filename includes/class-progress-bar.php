@@ -16,35 +16,47 @@ class WC_Progress_Bar {
 
     private function __construct() {
         $this->settings = get_option('wc_progress_bar_settings', array());
+        add_action('wp_ajax_get_progress_bar_data', array($this, 'get_progress_via_ajax'));
+        add_action('wp_ajax_nopriv_get_progress_bar_data', array($this, 'get_progress_via_ajax'));
     }
 
     public function get_current_progress() {
-        if (!WC()->cart) {
-            return array(
+        $cache_key = 'wc_progress_bar_' . md5(json_encode(WC()->cart ? WC()->cart->get_cart_contents() : 'empty'));
+        $cached = wp_cache_get($cache_key, 'wc_progress_bar');
+        
+        if (false !== $cached) {
+            return $cached;
+        }
+
+        if (!WC()->cart || WC()->cart->is_empty()) {
+            $result = array(
                 'progress' => 0,
                 'text' => __('Cart is empty', 'wc-dynamic-progress-bar'),
             );
+            wp_cache_set($cache_key, $result, 'wc_progress_bar', 3600);
+            return $result;
         }
 
         $cart_total = WC()->cart->get_subtotal();
         $product_count = WC()->cart->get_cart_contents_count();
         $conditions = isset($this->settings['conditions']) ? $this->settings['conditions'] : array();
 
-        // Sort conditions by priority if needed
+        // Sort conditions by priority
         usort($conditions, function($a, $b) {
             return $a['priority'] <=> $b['priority'];
         });
 
         foreach ($conditions as $condition) {
-            // Evaluate the condition with its sub-conditions
             $condition_met = $this->evaluate_condition($condition, $cart_total, $product_count);
 
             if ($condition_met) {
                 $text = $this->replace_placeholders($condition['text'], $cart_total, $product_count, $condition['progress']);
-                return array(
+                $result = array(
                     'progress' => $condition['progress'],
                     'text' => $text,
                 );
+                wp_cache_set($cache_key, $result, 'wc_progress_bar', 3600);
+                return $result;
             }
         }
 
@@ -53,35 +65,26 @@ class WC_Progress_Bar {
         $default_text = isset($this->settings['default_text']) ? $this->settings['default_text'] : '';
 
         $text = $this->replace_placeholders($default_text, $cart_total, $product_count, $default_progress);
-
-        return array(
+        $result = array(
             'progress' => $default_progress,
             'text' => $text,
         );
+        
+        wp_cache_set($cache_key, $result, 'wc_progress_bar', 3600);
+        return $result;
     }
 
-    /**
-     * Evaluate a condition with its sub-conditions
-     *
-     * @param array $condition The condition to evaluate
-     * @param float $cart_total The current cart total
-     * @param int $product_count The current product count
-     * @return bool Whether the condition is met
-     */
     private function evaluate_condition($condition, $cart_total, $product_count) {
-        // Evaluate main condition
         $main_result = $this->compare_values(
             $condition['type'] === 'cart_total' ? $cart_total : $product_count,
             $condition['operator'],
             floatval($condition['value'])
         );
 
-        // If there are no sub-conditions, return the main result
         if (empty($condition['sub_conditions'])) {
             return $main_result;
         }
 
-        // Evaluate sub-conditions
         $sub_results = array();
         foreach ($condition['sub_conditions'] as $sub_condition) {
             $sub_results[] = $this->compare_values(
@@ -91,24 +94,13 @@ class WC_Progress_Bar {
             );
         }
 
-        // Apply logical operator (AND/OR)
         if (isset($condition['logic']) && $condition['logic'] === 'and') {
-            // For AND logic, main condition and ALL sub-conditions must be true
             return $main_result && !in_array(false, $sub_results, true);
         } else {
-            // For OR logic, main condition OR ANY sub-condition must be true
             return $main_result || in_array(true, $sub_results, true);
         }
     }
 
-    /**
-     * Compare values based on operator
-     *
-     * @param mixed $actual The actual value
-     * @param string $operator The comparison operator
-     * @param mixed $expected The expected value
-     * @return bool The result of the comparison
-     */
     private function compare_values($actual, $operator, $expected) {
         switch ($operator) {
             case '>': return $actual > $expected;
@@ -212,12 +204,6 @@ class WC_Progress_Bar {
 
     public function get_progress_via_ajax() {
         check_ajax_referer('wc_progress_bar_nonce', 'nonce');
-
-        $progress_data = $this->get_current_progress();
-
-        wp_send_json_success(array(
-            'progress' => $progress_data['progress'],
-            'text' => $progress_data['text'],
-        ));
+        wp_send_json_success($this->get_current_progress());
     }
 }
