@@ -39,66 +39,69 @@ class WC_Progress_Bar {
 
         $cart_total = WC()->cart->get_subtotal();
         $product_count = WC()->cart->get_cart_contents_count();
-        $conditions = isset($this->settings['conditions']) ? $this->settings['conditions'] : array();
-
-        // Sort conditions by priority
-        usort($conditions, function($a, $b) {
-            return $a['priority'] <=> $b['priority'];
-        });
+        $conditions = $this->get_sorted_conditions();
 
         foreach ($conditions as $condition) {
-            $condition_met = $this->evaluate_condition($condition, $cart_total, $product_count);
-
-            if ($condition_met) {
-                $text = $this->replace_placeholders($condition['text'], $cart_total, $product_count, $condition['progress']);
+            if ($this->evaluate_condition($condition, $cart_total, $product_count)) {
+                $target_value = floatval($condition['value']);
+                $remaining = max(0, $target_value - $cart_total);
+                $progress_percentage = $this->calculate_progress_percentage($cart_total, $target_value);
+                
                 $result = array(
                     'progress' => $condition['progress'],
-                    'text' => $text,
+                    'text' => $this->generate_dynamic_text($condition['text'], $cart_total, $product_count, $condition['progress'], $remaining, $progress_percentage),
                 );
+                
                 wp_cache_set($cache_key, $result, 'wc_progress_bar', 3600);
                 return $result;
             }
         }
 
-        // Default state if no conditions are met
-        $default_progress = isset($this->settings['default_progress']) ? $this->settings['default_progress'] : 0;
-        $default_text = isset($this->settings['default_text']) ? $this->settings['default_text'] : '';
-
-        $text = $this->replace_placeholders($default_text, $cart_total, $product_count, $default_progress);
+        // Default state
+        $target_value = $this->get_next_target_value($cart_total);
+        $remaining = max(0, $target_value - $cart_total);
+        $progress_percentage = $this->calculate_progress_percentage($cart_total, $target_value);
+        
         $result = array(
-            'progress' => $default_progress,
-            'text' => $text,
+            'progress' => $this->settings['default_progress'] ?? 0,
+            'text' => $this->generate_dynamic_text(
+                $this->settings['default_text'] ?? '',
+                $cart_total,
+                $product_count,
+                $this->settings['default_progress'] ?? 0,
+                $remaining,
+                $progress_percentage
+            ),
         );
         
         wp_cache_set($cache_key, $result, 'wc_progress_bar', 3600);
         return $result;
     }
 
+    private function get_sorted_conditions() {
+        $conditions = $this->settings['conditions'] ?? array();
+        usort($conditions, function($a, $b) {
+            return $a['priority'] <=> $b['priority'];
+        });
+        return $conditions;
+    }
+
     private function evaluate_condition($condition, $cart_total, $product_count) {
-        $main_result = $this->compare_values(
-            $condition['type'] === 'cart_total' ? $cart_total : $product_count,
-            $condition['operator'],
-            floatval($condition['value'])
-        );
+        $value_to_compare = $condition['type'] === 'cart_total' ? $cart_total : $product_count;
+        $main_result = $this->compare_values($value_to_compare, $condition['operator'], floatval($condition['value']));
 
         if (empty($condition['sub_conditions'])) {
             return $main_result;
         }
 
-        $sub_results = array();
-        foreach ($condition['sub_conditions'] as $sub_condition) {
-            $sub_results[] = $this->compare_values(
-                $sub_condition['type'] === 'cart_total' ? $cart_total : $product_count,
-                $sub_condition['operator'],
-                floatval($sub_condition['value'])
-            );
-        }
+        $sub_results = array_map(function($sub_condition) use ($cart_total, $product_count) {
+            $sub_value = $sub_condition['type'] === 'cart_total' ? $cart_total : $product_count;
+            return $this->compare_values($sub_value, $sub_condition['operator'], floatval($sub_condition['value']));
+        }, $condition['sub_conditions']);
 
-        if (isset($condition['logic']) && $condition['logic'] === 'and') {
-            return $main_result && !in_array(false, $sub_results, true);
-        } else {
-            return $main_result || in_array(true, $sub_results, true);
-        }
+        return $condition['logic'] === 'and' 
+            ? $main_result && !in_array(false, $sub_results, true)
+            : $main_result || in_array(true, $sub_results, true);
     }
 
     private function compare_values($actual, $operator, $expected) {
@@ -112,19 +115,18 @@ class WC_Progress_Bar {
         }
     }
 
-    private function replace_placeholders($text, $cart_total, $product_count, $progress) {
+    private function generate_dynamic_text($text, $cart_total, $product_count, $progress, $remaining, $progress_percentage) {
         $placeholders = array(
             '{cart_total}' => wc_price($cart_total),
             '{product_count}' => $product_count,
-            '{progress_percentage}' => $progress . '%',
-            '{remaining_amount}' => wc_price($this->get_remaining_amount($cart_total)),
+            '{progress_percentage}' => $progress_percentage . '%',
+            '{remaining_amount}' => wc_price($remaining),
         );
-
-        return str_replace(array_keys($placeholders), array_values($placeholders), $text);
+        return wp_kses_post(str_replace(array_keys($placeholders), array_values($placeholders), $text));
     }
 
-    private function get_remaining_amount($cart_total) {
-        $conditions = isset($this->settings['conditions']) ? $this->settings['conditions'] : array();
+    private function get_next_target_value($cart_total) {
+        $conditions = $this->settings['conditions'] ?? array();
         $min_amount = null;
 
         foreach ($conditions as $condition) {
@@ -136,70 +138,86 @@ class WC_Progress_Bar {
             }
         }
 
-        return $min_amount !== null ? max(0, $min_amount - $cart_total) : 0;
+        return $min_amount ?? 0;
+    }
+
+    private function calculate_progress_percentage($cart_total, $target_value) {
+        if ($target_value <= 0) return 0;
+        $percentage = ($cart_total / $target_value) * 100;
+        return min(100, max(0, round($percentage, 2)));
     }
 
     public function render_progress_bar($atts = array()) {
         $progress_data = $this->get_current_progress();
         $settings = $this->settings;
 
-        // Merge shortcode attributes with settings
-        $bar_style = isset($settings['bar_style']) ? $settings['bar_style'] : array();
-        $text_style = isset($settings['text_style']) ? $settings['text_style'] : array();
+        // Merge settings with shortcode attributes
+        $bar_style = array_merge(
+            $settings['bar_style'] ?? array(),
+            $this->filter_atts_by_prefix($atts, 'bar_')
+        );
+        
+        $text_style = array_merge(
+            $settings['text_style'] ?? array(),
+            $this->filter_atts_by_prefix($atts, 'text_')
+        );
 
-        // Override with shortcode attributes
-        if (!empty($atts)) {
-            foreach ($atts as $key => $value) {
-                if (strpos($key, 'bar_') === 0) {
-                    $bar_key = substr($key, 4);
-                    $bar_style[$bar_key] = $value;
-                } elseif (strpos($key, 'text_') === 0) {
-                    $text_key = substr($key, 5);
-                    $text_style[$text_key] = $value;
-                }
-            }
-        }
-
-        // Enqueue scripts and styles
-        wp_enqueue_style('wc-progress-bar-frontend');
-        wp_enqueue_script('wc-progress-bar-frontend');
-
-        // Localize script with AJAX URL and cart data
-        wp_localize_script('wc-progress-bar-frontend', 'wcProgressBar', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('wc_progress_bar_nonce'),
-        ));
+        // Enqueue assets
+        $this->enqueue_frontend_assets();
 
         ob_start();
         ?>
         <div class="wc-progress-bar-container" data-transition="<?php echo esc_attr($bar_style['transition'] === 'yes' ? '1' : '0'); ?>">
             <div class="wc-progress-bar-text" style="
-                font-size: <?php echo esc_attr($text_style['font_size']); ?>;
-                font-weight: <?php echo esc_attr($text_style['font_weight']); ?>;
-                color: <?php echo esc_attr($text_style['color']); ?>;
+                font-size: <?php echo esc_attr($text_style['font_size'] ?? '16px'); ?>;
+                font-weight: <?php echo esc_attr($text_style['font_weight'] ?? 'normal'); ?>;
+                color: <?php echo esc_attr($text_style['color'] ?? '#333333'); ?>;
                 margin-bottom: 10px;
             ">
-                <?php echo wp_kses_post($progress_data['text']); ?>
+                <?php echo $progress_data['text']; ?>
             </div>
             <div class="wc-progress-bar-background" style="
-                height: <?php echo esc_attr($bar_style['height']); ?>;
-                width: <?php echo esc_attr($bar_style['width']); ?>;
-                background-color: <?php echo esc_attr($bar_style['background_color']); ?>;
-                border: <?php echo esc_attr($bar_style['border_width']); ?> solid <?php echo esc_attr($bar_style['border_color']); ?>;
-                border-radius: <?php echo esc_attr($bar_style['border_radius']); ?>;
+                height: <?php echo esc_attr($bar_style['height'] ?? '20px'); ?>;
+                width: <?php echo esc_attr($bar_style['width'] ?? '100%'); ?>;
+                background-color: <?php echo esc_attr($bar_style['background_color'] ?? '#f5f5f5'); ?>;
+                border: <?php echo esc_attr($bar_style['border_width'] ?? '1px'); ?> solid <?php echo esc_attr($bar_style['border_color'] ?? '#dddddd'); ?>;
+                border-radius: <?php echo esc_attr($bar_style['border_radius'] ?? '4px'); ?>;
                 overflow: hidden;
             ">
                 <div class="wc-progress-bar-fill" style="
                     height: 100%;
                     width: <?php echo esc_attr($progress_data['progress']); ?>%;
-                    background-color: <?php echo esc_attr($bar_style['fill_color']); ?>;
-                    transition: <?php echo $bar_style['transition'] === 'yes' ? 'width 0.5s ease-in-out' : 'none'; ?>;
+                    background-color: <?php echo esc_attr($bar_style['fill_color'] ?? '#4CAF50'); ?>;
+                    transition: <?php echo ($bar_style['transition'] ?? 'yes') === 'yes' ? 'width 0.5s ease-in-out' : 'none'; ?>;
                 " role="progressbar" aria-valuenow="<?php echo esc_attr($progress_data['progress']); ?>" aria-valuemin="0" aria-valuemax="100">
                 </div>
             </div>
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    private function filter_atts_by_prefix($atts, $prefix) {
+        $filtered = array();
+        $prefix_length = strlen($prefix);
+        
+        foreach ($atts as $key => $value) {
+            if (strpos($key, $prefix) === 0) {
+                $filtered[substr($key, $prefix_length)] = $value;
+            }
+        }
+        
+        return $filtered;
+    }
+
+    private function enqueue_frontend_assets() {
+        wp_enqueue_style('wc-progress-bar-frontend');
+        wp_enqueue_script('wc-progress-bar-frontend');
+        
+        wp_localize_script('wc-progress-bar-frontend', 'wcProgressBar', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('wc_progress_bar_nonce'),
+        ));
     }
 
     public function get_progress_via_ajax() {

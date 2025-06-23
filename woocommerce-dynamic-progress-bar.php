@@ -23,7 +23,7 @@ define('WC_PROGRESS_BAR_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_PROGRESS_BAR_BASENAME', plugin_basename(__FILE__));
 
 // Check if WooCommerce is active
-if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins'))) {
+if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
     add_action('admin_notices', function() {
         ?>
         <div class="notice notice-error">
