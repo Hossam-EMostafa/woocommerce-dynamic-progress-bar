@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce Dynamic Progress Bar
  * Plugin URI: https://school-of-marketing.com/
  * Description: Adds a dynamic progress bar to WooCommerce that updates based on cart conditions.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: SoM (Hossam Essam)
  * Author URI: https://school-of-marketing.com/
  * License: GPL-2.0+
@@ -17,7 +17,7 @@
 defined('ABSPATH') || exit;
 
 // Define plugin constants
-define('WC_PROGRESS_BAR_VERSION', '1.1.0');
+define('WC_PROGRESS_BAR_VERSION', '1.1.1');
 define('WC_PROGRESS_BAR_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WC_PROGRESS_BAR_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_PROGRESS_BAR_BASENAME', plugin_basename(__FILE__));
