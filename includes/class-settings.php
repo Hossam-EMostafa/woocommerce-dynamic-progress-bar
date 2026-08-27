@@ -37,6 +37,10 @@ class WC_Progress_Bar_Settings {
             array($this, 'sanitize_settings')
         );
 
+        // Rendered bar results are cached for up to an hour; drop the cache
+        // whenever settings change so the frontend reflects them immediately.
+        add_action('update_option_wc_progress_bar_settings', array($this, 'flush_render_cache'), 10, 0);
+
         // General Settings Section
         add_settings_section(
             'wc_progress_bar_general_section',
@@ -379,15 +383,15 @@ class WC_Progress_Bar_Settings {
             <option value="bold" <?php selected($value, 'bold'); ?>><?php _e('Bold', 'wc-dynamic-progress-bar'); ?></option>
             <option value="bolder" <?php selected($value, 'bolder'); ?>><?php _e('Bolder', 'wc-dynamic-progress-bar'); ?></option>
             <option value="lighter" <?php selected($value, 'lighter'); ?>><?php _e('Lighter', 'wc-dynamic-progress-bar'); ?></option>
-            <option value="100" <?php selected($value, '100'); ?>100</option>
-            <option value="200" <?php selected($value, '200'); ?>200</option>
-            <option value="300" <?php selected($value, '300'); ?>300</option>
-            <option value="400" <?php selected($value, '400'); ?>400</option>
-            <option value="500" <?php selected($value, '500'); ?>500</option>
-            <option value="600" <?php selected($value, '600'); ?>600</option>
-            <option value="700" <?php selected($value, '700'); ?>700</option>
-            <option value="800" <?php selected($value, '800'); ?>800</option>
-            <option value="900" <?php selected($value, '900'); ?>900</option>
+            <option value="100" <?php selected($value, '100'); ?>>100</option>
+            <option value="200" <?php selected($value, '200'); ?>>200</option>
+            <option value="300" <?php selected($value, '300'); ?>>300</option>
+            <option value="400" <?php selected($value, '400'); ?>>400</option>
+            <option value="500" <?php selected($value, '500'); ?>>500</option>
+            <option value="600" <?php selected($value, '600'); ?>>600</option>
+            <option value="700" <?php selected($value, '700'); ?>>700</option>
+            <option value="800" <?php selected($value, '800'); ?>>800</option>
+            <option value="900" <?php selected($value, '900'); ?>>900</option>
         </select>
         <?php
     }
@@ -473,6 +477,15 @@ class WC_Progress_Bar_Settings {
             <?php _e('Enable smooth transition animation', 'wc-dynamic-progress-bar'); ?>
         </label>
         <?php
+    }
+
+    /**
+     * Clears cached progress-bar render results.
+     */
+    public function flush_render_cache() {
+        if (function_exists('wp_cache_flush_group')) {
+            wp_cache_flush_group('wc_progress_bar');
+        }
     }
 
     public function sanitize_settings($input) {
